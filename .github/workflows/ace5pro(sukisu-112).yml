@@ -119,7 +119,7 @@ jobs:
          echo "Using local_version: ${{ inputs.local_version }}"
          sed -i "s/CONFIG_LOCALVERSION=\"-4k\"/CONFIG_LOCALVERSION=\"${{ inputs.local_version }}\"/" ./common/arch/arm64/configs/gki_defconfig
            
-      - name: Add SUSFS Configuration Settings
+      - name: Add Configuration Settings
         run: |
           cd kernel_workspace/kernel_platform
           # 向 gki_defconfig 中追加配置
@@ -165,11 +165,15 @@ jobs:
             
       - name: 修补越权0字符
         run: |
+          # 确保内核工作目录存在
+          mkdir -p kernel_workspace/kernel_platform/
           cd kernel_workspace/kernel_platform/
+          # 克隆补丁仓库
           git clone https://github.com/ITxiao6666/Unicode_bypass_Fix.git
-          cd kernel_workspace/kernel_platform/
+          # 进入克隆生成的仓库目录，补丁文件在此目录内
+          cd Unicode_bypass_Fix
           patch -p1 < unicode_bypass_fix_6.12.patch
-            
+      
       - name: Set build timestamp
         run: |         
          export SOURCE_DATE_EPOCH=$(date -d "Tue Jul  1 19:48:18 UTC 2025" +%s)
