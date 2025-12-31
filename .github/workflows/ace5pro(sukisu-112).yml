@@ -9,7 +9,7 @@ on:
       FEIL:
         description: "配置文件"
         required: true
-        default: 'oneplus_ace5_pro-112'
+        default: 'oneplus_ace5_pro-112-dev'
       CPUD:
         description: "处理器代号"
         required: true
@@ -26,11 +26,6 @@ on:
         description: "修改内核名称"
         required: true
         default: '-android15-8-g29d86c5fc9dd-abogki428889875'
-      ENABLE_KPM:
-        description: "启用kpm"
-        required: true
-        default: true
-        type: boolean
       local_version:
         description: '输入内核后缀名（如-v8）'
         required: false
@@ -41,11 +36,6 @@ on:
         required: false
         default: false
         type: boolean
-      sukisu_tag:
-        description: "自定义版本来源后缀（如:见清）"
-        required: false
-        default: "开挂要隐藏🐉"
-        
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -122,49 +112,6 @@ jobs:
          rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
 
-      - name: Export suffix
-        run: |
-          echo "TAG_SUFFIX=${{ github.event.inputs.sukisu_tag }}" >> $GITHUB_ENV
-         
-      - name: Inject dynamic SukiSU string version
-        run: |
-         cd kernel_workspace/kernel_platform
-         curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/main/kernel/setup.sh" | bash -s susfs-main
-         cd KernelSU
-         # 获取自定义后缀（如：见清）
-         TAG_SUFFIX="${{ github.event.inputs.sukisu_tag }}"
-         # 使用正确变量名 KSU_VERSION_API 替换函数体
-         sed -i "/^define get_ksu_version_full$/,/^endef$/c\
-         define get_ksu_version_full\\
-         v\$(KSU_VERSION_API)-sukisu-\$(KSU_VERSION)-by-${TAG_SUFFIX}\\
-         endef" kernel/Makefile
-         echo "✅ Injected custom version: v\$(KSU_VERSION_API)-sukisu-\$(KSU_VERSION)-by-$TAG_SUFFIX"
-         KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 37185)
-         echo "KSUVER=$KSU_VERSION" >> $GITHUB_ENV
-         export KSU_VERSION=$KSU_VERSION
-
-      - name: Set up SUSFS & apply patches
-        run: |
-         set -e
-         cd kernel_workspace
-         git clone --depth=1 https://gitlab.com/simonpunk/susfs4ksu.git -b gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }}
-         git clone --depth=1 https://github.com/SukiSU-Ultra/SukiSU_patch.git
-         git clone https://github.com/egcd521/kernel_patches.git
-         cd kernel_platform
-         cp ../susfs4ksu/kernel_patches/50_add_susfs_in_gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }}.patch ./common/ || true
-         mkdir -p ./common/fs ./common/include/linux ./common/lib ./common/crypto
-         cp ../kernel_patches/next/scope_min_manual_hooks_v1.6.patch ./common/
-         cp ../susfs4ksu/kernel_patches/fs/* ./common/fs/ || true
-         cp ../susfs4ksu/kernel_patches/include/linux/* ./common/include/linux/ || true
-         cd ./common
-         PATCH_FILE=50_add_susfs_in_gki-${{ inputs.ANDROID_VERSION }}-${{ inputs.KERNEL_VERSION }}.patch
-         if [[ -f "$PATCH_FILE" ]]; then
-         #sed -i 's/-32,12 +32,38/-32,11 +32,37/g' "$PATCH_FILE"
-         #sed -i '/#include <trace\/hooks\/fs.h>/d' "$PATCH_FILE"
-         patch -p1 < "$PATCH_FILE" || true
-         fi
-         echo "✅ SUSFS 和 scope_min_manual_hooks_v1.6 应用完成"
-
       - name: Set CONFIG_LOCALVERSION
         if: ${{ inputs.local_version != '-4k' }}
         run: |
@@ -177,25 +124,6 @@ jobs:
           cd kernel_workspace/kernel_platform
           # 向 gki_defconfig 中追加配置
           cat <<EOF >> ./common/arch/arm64/configs/gki_defconfig
-          # KSU 与 SUSFS 配置
-          CONFIG_KSU=y
-          CONFIG_KSU_MANUAL_HOOK=y
-          CONFIG_KSU_SUSFS=y
-          CONFIG_KSU_SUSFS_HAS_MAGIC_MOUNT=y
-          CONFIG_KSU_SUSFS_SUS_PATH=y
-          CONFIG_KSU_SUSFS_SUS_MOUNT=y
-          CONFIG_KSU_SUSFS_AUTO_ADD_SUS_KSU_DEFAULT_MOUNT=y
-          CONFIG_KSU_SUSFS_AUTO_ADD_SUS_BIND_MOUNT=y
-          CONFIG_KSU_SUSFS_SUS_KSTAT=y
-          CONFIG_KSU_SUSFS_TRY_UMOUNT=y
-          CONFIG_KSU_SUSFS_AUTO_ADD_TRY_UMOUNT_FOR_BIND_MOUNT=y
-          CONFIG_KSU_SUSFS_SPOOF_UNAME=y
-          CONFIG_KSU_SUSFS_ENABLE_LOG=y
-          CONFIG_KSU_SUSFS_HIDE_KSU_SUSFS_SYMBOLS=y
-          CONFIG_KSU_SUSFS_SPOOF_CMDLINE_OR_BOOTCONFIG=y
-          CONFIG_KSU_SUSFS_OPEN_REDIRECT=y
-          CONFIG_KSU_SUSFS_SUS_SU=n
-          CONFIG_KSU_SUSFS_SUS_OVERLAYFS=n
           # 启用 ThinLTO 与 Polly 优化器
           CONFIG_LTO_CLANG=y
           CONFIG_LTO_CLANG_THIN=y
@@ -211,17 +139,8 @@ jobs:
           # 提交更改（可选）
           cd common
           git add -A
-          git commit -a -m "BUILD Kernel with Polly, BBR, KSU, SUSFS and compression configs"
-          
-      - name: 启用kpm
-        if: ${{ fromJSON(github.event.inputs.ENABLE_KPM) }}
-        run: |
-         cd kernel_workspace/kernel_platform
-         echo "CONFIG_KPM=y" >> ./common/arch/arm64/configs/gki_defconfig
-         sudo sed -i 's/check_defconfig//' ./common/build.config.gki
-         cd common
-         git add -A && git commit -a -m "BUILD Kernel"
-
+          git commit -a -m "BUILD Kernel with Polly, BBR, and compression configs"
+      
       - name: Add make name
         run: |
          cd kernel_workspace/kernel_platform
@@ -317,16 +236,6 @@ jobs:
          # 创建输出目录并复制 Image
          mkdir -p ../dist
          cp out/arch/arm64/boot/Image ../dist/
-
-      - name: 打kpm补丁
-        if: ${{ fromJSON(github.event.inputs.ENABLE_KPM) }}
-        run: |
-         cd kernel_workspace/kernel_platform/dist
-         curl -LO https://github.com/SukiSU-Ultra/SukiSU_KernelPatch_patch/releases/download/0.12.2/patch_linux
-         chmod +x patch_linux
-         ./patch_linux
-         rm -f Image
-         mv oImage Image
 
       - name: 验证内核构建时间
         run: |
