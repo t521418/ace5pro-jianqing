@@ -1,4 +1,4 @@
-name: ace5pro(sukisu）
+name: ace5pro(sukisu_6.6.30）
 on:
   workflow_dispatch:
     inputs:
@@ -9,7 +9,7 @@ on:
       FEIL:
         description: "配置文件"
         required: true
-        default: 'oneplus_ace5_pro'
+        default: 'test'
       CPUD:
         description: "处理器代号"
         required: true
@@ -86,7 +86,7 @@ jobs:
         uses: actions/cache@v3
         with:
          path: /home/runner/.ccache
-         key: ${{ runner.os }}-${{ github.repository }}-v1自定义
+         key: ${{ runner.os }}-${{ github.repository }}-v6.6.30
          restore-keys: |
           ${{ runner.os }}-${{ github.repository }}-
           ${{ runner.os }}-
@@ -117,7 +117,7 @@ jobs:
       - name: Initialize repo and sync
         run: |
          mkdir kernel_workspace && cd kernel_workspace
-         repo init -u https://github.com/OnePlusOSS/kernel_manifest.git -b refs/heads/oneplus/${{ github.event.inputs.CPU }} -m ${{ github.event.inputs.FEIL }}.xml --depth=1
+         repo init -u https://github.com/SQMY-dor/kernel_manifest.git -b refs/heads/oneplus/${{ github.event.inputs.CPU }} -m ${{ github.event.inputs.FEIL }}.xml --depth=1
          repo --trace sync -c -j$(nproc --all) --no-tags
          rm kernel_platform/common/android/abi_gki_protected_exports_* || echo "No protected exports!"
          rm kernel_platform/msm-kernel/android/abi_gki_protected_exports_* || echo "No protected exports!"
@@ -129,7 +129,7 @@ jobs:
       - name: Inject dynamic SukiSU string version
         run: |
          cd kernel_workspace/kernel_platform
-         curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/tmp-builtin/kernel/setup.sh" | bash -s tmp-builtin
+         curl -LSs "https://raw.githubusercontent.com/SukiSU-Ultra/SukiSU-Ultra/builtin/kernel/setup.sh" | bash -s builtin
          cd KernelSU
          # 自定义后缀（支持 emoji）
          TAG_SUFFIX="见清🤣👉🏻🤡"
@@ -138,7 +138,7 @@ jobs:
          echo "✅ Injected: v\$(KSU_VERSION_API)-sukisu-\$(KSU_VERSION)-by-${TAG_SUFFIX}"
          # 计算 KSU_VERSION
          KSU_LOCAL_COUNT=$(git rev-list --count builtin 2>/dev/null || echo 0)
-         KSU_VERSION=$(expr $(/usr/bin/git rev-list --count main) "+" 37185)
+         KSU_VERSION=$(expr 42483 + "$KSU_LOCAL_COUNT" - 2815)
          echo "KSUVER=$KSU_VERSION" >> "$GITHUB_ENV"
          export KSU_VERSION="$KSU_VERSION"
          echo "✅ KSU_VERSION=$KSU_VERSION"
