@@ -163,6 +163,12 @@ jobs:
           cd kernel_workspace/kernel_platform/
           git clone https://github.com/egcd521/afdo.git
             
+      - name: 修补越权0字符
+        run: |
+          cd kernel_workspace/kernel_platform/
+          git clone https://github.com/ITxiao6666/Unicode_bypass_Fix.git
+          patch -p1 < unicode_bypass_fix_5.10-6.1.patch
+            
       - name: Set build timestamp
         run: |         
          export SOURCE_DATE_EPOCH=$(date -d "Tue Jul  1 19:48:18 UTC 2025" +%s)
