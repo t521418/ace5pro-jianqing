@@ -163,11 +163,16 @@ jobs:
           cd kernel_workspace/kernel_platform/
           git clone https://github.com/egcd521/afdo.git
             
-      - name: 修补越权0字符
+      - name: Apply UNICODE_BYPASS and MEMORY_OPT
         run: |
-          cd kernel_workspace/kernel_platform/
-          git clone https://github.com/ITxiao6666/Unicode_bypass_Fix.git
-          patch -p1 < Unicode_bypass_Fix/unicode_bypass_fix_6.12.patch
+          PATCH_DIR="${GITHUB_WORKSPACE}/kernel_workspace/Action-Build/patches"
+          cd kernel_workspace/kernel_platform/common
+          patch -p1 --forward < "${PATCH_DIR}/optimized_mem_operations.patch"
+          patch -p1 --forward < "${PATCH_DIR}/file_struct_8bytes_align.patch"
+          patch -p1 --forward < "${PATCH_DIR}/reduce_cache_pressure.patch"
+            cat "${PATCH_DIR}/clear_page_16bytes_align.patch" | sed -e 's/SYM_FUNC_START_PI(clear_page)/SYM_FUNC_START_PI(__pi_clear_page)/' | patch -p1 -F3 --forward
+            echo "Patching unicode!"
+            patch -p1 --forward < "${PATCH_DIR}/unicode_bypass_fix_6.1+.patch"
       
       - name: Set build timestamp
         run: |         
